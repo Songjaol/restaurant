@@ -33,5 +33,10 @@ out/
 /nbdist/
 /.nb-gradle/
 
+# === 비밀키, 환경설정 파일 ===
+# 🔒 비밀 설정 파일 제외
+application-secret.properties
+.env
+
 ### VS Code ###
 .vscode/

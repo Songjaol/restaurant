@@ -5,6 +5,7 @@ import com.example.restaurant.repository.RestaurantRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -22,13 +23,19 @@ import java.util.*;
 public class KakaoApiService {
 
     private final RestaurantRepository restaurantRepository;
+    @Value("${api.kakao.key}")
+    private String kakaoApiKey;
 
+    @Value("${api.naver.client-id}")
+    private String naverClientId;
+
+    @Value("${api.naver.client-secret}")
+    private String naverClientSecret;
+
+    @Value("${api.google.key}")
+    private String googleApiKey;
     private static final String KAKAO_API_URL = "https://dapi.kakao.com/v2/local/search/keyword.json";
-    private static final String KAKAO_API_KEY = "KakaoAK c3cb0e2c97616f5fa45e104817c461a2";
 
-    private static final String NAVER_CLIENT_ID = "5ruGnwiw1PdvCM3fXoYw";
-    private static final String NAVER_CLIENT_SECRET = "b8mTVdVcfc";
-    private static final String GOOGLE_API_KEY = "AIzaSyBZpVKsV34fIBgyWYi_SLizRWYGZiTj9z0";
 
     /** 지역 이름으로 음식점 수집 및 저장 */
     public void fetchAndSaveRestaurants(String query) {
@@ -72,7 +79,7 @@ public class KakaoApiService {
             String url = KAKAO_API_URL + "?query=" + URLEncoder.encode(query, StandardCharsets.UTF_8);
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
-                    .header("Authorization", KAKAO_API_KEY)
+                    .header("Authorization", kakaoApiKey)
                     .build();
 
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
@@ -120,7 +127,7 @@ public class KakaoApiService {
             // ✅ URL 빌더로 인코딩 문제 방지
             String baseUrl = "https://maps.googleapis.com/maps/api/place/textsearch/json";
             String encodedQuery = URLEncoder.encode(keyword, StandardCharsets.UTF_8).replace("+", "%20");
-            String fullUrl = baseUrl + "?query=" + encodedQuery + "&region=kr&key=" + GOOGLE_API_KEY;
+            String fullUrl = baseUrl + "?query=" + encodedQuery + "&region=kr&key=" + googleApiKey;
 
             // ✅ RestTemplate exchange()로 요청 (String으로 직접 받기)
             RestTemplate restTemplate = new RestTemplate();
@@ -148,7 +155,7 @@ public class KakaoApiService {
                 String photoUrl = "https://maps.googleapis.com/maps/api/place/photo"
                         + "?maxwidth=800"
                         + "&photo_reference=" + photoRef
-                        + "&key=" + GOOGLE_API_KEY;
+                        + "&key=" + googleApiKey;
 
 
                 return photoUrl;
@@ -167,8 +174,8 @@ public class KakaoApiService {
                     "&display=10&sort=sim";
 
             HttpHeaders headers = new HttpHeaders();
-            headers.set("X-Naver-Client-Id", NAVER_CLIENT_ID);
-            headers.set("X-Naver-Client-Secret", NAVER_CLIENT_SECRET);
+            headers.set("X-Naver-Client-Id", naverClientId);
+            headers.set("X-Naver-Client-Secret", naverClientSecret);
 
             RestTemplate rest = new RestTemplate();
             ObjectMapper mapper = new ObjectMapper();
