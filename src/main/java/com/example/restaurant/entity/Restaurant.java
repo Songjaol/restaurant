@@ -24,5 +24,7 @@ public class Restaurant {
     private String region;      // 검색 지역명 (예: 홍대 맛집)
     @Column
     private String placeUrl;
+    @Column(length = 1000)
+    private String imageUrl;
 
 }

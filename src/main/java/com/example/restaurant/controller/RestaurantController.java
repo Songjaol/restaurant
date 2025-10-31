@@ -34,18 +34,19 @@ public class RestaurantController {
     @GetMapping(params = "region")
     public List<Restaurant> getRestaurantsByRegion(@RequestParam String region) throws Exception {
         // 1️⃣ DB에서 해당 지역 맛집 검색
-        List<Restaurant> list = restaurantRepository.findByRegion(region);
+        String normalizedRegion = region.replaceAll("\\s+", "");
+
+        List<Restaurant> list = restaurantRepository.findByNormalizedRegion(normalizedRegion);
 
         // 2️⃣ DB에 없으면 → 카카오 API로부터 가져오기
         if (list.isEmpty()) {
-            System.out.println("⚙️ DB에 [" + region + "] 데이터 없음 → 카카오 API 호출 중...");
-            kakaoApiService.fetchAndSaveRestaurants(region);
-            list = restaurantRepository.findByRegion(region);
+            System.out.println("⚙️ DB에 [" + normalizedRegion + "] 데이터 없음 → 카카오 API 호출 중...");
+            kakaoApiService.fetchAndSaveRestaurants(region); // 원래 검색어(공백 포함)로 API 호출
+            list = restaurantRepository.findByNormalizedRegion(normalizedRegion);
         } else {
-            System.out.println("💾 DB에서 [" + region + "] 데이터 로드 (" + list.size() + "개)");
+            System.out.println("💾 DB에서 [" + normalizedRegion + "] 데이터 로드 (" + list.size() + "개)");
         }
 
-        // 3️⃣ 결과 반환
         return list;
     }
 }
