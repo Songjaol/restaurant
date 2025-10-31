@@ -30,8 +30,12 @@ public class RestaurantController {
     /** 지역별 맛집 조회 (없으면 비동기로 수집) */
     @GetMapping(params = "region")
     public List<Restaurant> getRestaurantsByRegion(@RequestParam String region) {
-        String normalized = region.replaceAll("\\s+", "");
-        List<Restaurant> list = restaurantRepository.findByNormalizedRegion(normalized);
+        String normalizedRegion = region.replaceAll("\\s+", "");
+        if (normalizedRegion.contains("음식점")) {
+            normalizedRegion = normalizedRegion.replace("음식점", "맛집");
+            System.out.println("🔁 검색어 변환됨: " + region + " → " + normalizedRegion);
+        }
+        List<Restaurant> list = restaurantRepository.findByNormalizedRegion(normalizedRegion);
 
         if (list.isEmpty()) {
             executor.submit(() -> {
@@ -42,7 +46,7 @@ public class RestaurantController {
             return List.of(); // 프론트 로딩용
         }
 
-        System.out.println("📦 [" + normalized + "] DB 로드: " + list.size() + "개");
+        System.out.println("📦 [" + normalizedRegion + "] DB 로드: " + list.size() + "개");
         return list;
     }
 }
