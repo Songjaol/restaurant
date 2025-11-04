@@ -4,6 +4,7 @@ import com.example.restaurant.entity.Restaurant;
 import com.example.restaurant.repository.RestaurantRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -35,7 +36,6 @@ public class KakaoApiService {
     @Value("${api.google.key}")
     private String googleApiKey;
     private static final String KAKAO_API_URL = "https://dapi.kakao.com/v2/local/search/keyword.json";
-
 
     /** 지역 이름으로 음식점 수집 및 저장 */
     public void fetchAndSaveRestaurants(String query) {
@@ -114,6 +114,8 @@ public class KakaoApiService {
 
     /** 이미지 검색 (Google → Naver → 기본) */
     private String fetchImageWithFallback(String name) {
+
+
         String img = fetchImageFromGoogle(name);
         if (img != null) return img;
         img = fetchImageFromNaver(name);
@@ -121,51 +123,67 @@ public class KakaoApiService {
         return "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800";
     }
 
-    private String fetchImageFromGoogle(String keyword) {
+    private String fetchImageFromGoogle(String placeName) {
         try {
-            ObjectMapper mapper = new ObjectMapper();
-            // ✅ URL 빌더로 인코딩 문제 방지
-            String baseUrl = "https://maps.googleapis.com/maps/api/place/textsearch/json";
-            String encodedQuery = URLEncoder.encode(keyword, StandardCharsets.UTF_8).replace("+", "%20");
-            String fullUrl = baseUrl + "?query=" + encodedQuery + "&region=kr&key=" + googleApiKey;
+            // ✅ 1. API 엔드포인트
+            String url = "https://places.googleapis.com/v1/places:searchText";
 
-            // ✅ RestTemplate exchange()로 요청 (String으로 직접 받기)
+            // ✅ 2. 요청 본문 — 상호명 단위 검색
+            ObjectMapper mapper = new ObjectMapper();
+            ObjectNode body = mapper.createObjectNode();
+            body.put("textQuery", placeName); // 예: "감성타코 홍대점"
+            body.put("languageCode", "ko");
+            body.put("regionCode", "KR");
+
+            String requestBody = mapper.writeValueAsString(body);
+
+            // ✅ 3. HTTP 헤더
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.add("X-Goog-Api-Key", googleApiKey);
+            headers.add("X-Goog-FieldMask", "places.photos,places.displayName");
+
+            HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
             RestTemplate restTemplate = new RestTemplate();
-            ResponseEntity<String> responseEntity = restTemplate.exchange(
-                    URI.create(fullUrl),
-                    HttpMethod.GET,
-                    null,
+
+            // ✅ 4. Google Places Text Search 호출
+            ResponseEntity<String> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    entity,
                     String.class
             );
+            System.out.println(response.getBody());
+            // ✅ 5. 응답 파싱
+            JsonNode root = mapper.readTree(response.getBody());
+            JsonNode places = root.path("places");
 
-            String searchResponse = responseEntity.getBody();
-            JsonNode root = mapper.readTree(searchResponse);
-
-            JsonNode results = root.path("results");
-
-            if (!results.isArray() || results.size() == 0) {
+            if (!places.isArray() || places.isEmpty()) {
+                System.out.println("⚠️ Google API: [" + placeName + "] 검색 결과 없음");
                 return null;
             }
 
-            JsonNode first = results.get(0);
+            // ✅ 6. 첫 번째 장소의 사진 정보 가져오기
+            JsonNode first = places.get(0);
             JsonNode photos = first.path("photos");
 
             if (photos.isArray() && photos.size() > 0) {
-                String photoRef = photos.get(0).path("photo_reference").asText();
-                String photoUrl = "https://maps.googleapis.com/maps/api/place/photo"
-                        + "?maxwidth=800"
-                        + "&photo_reference=" + photoRef
-                        + "&key=" + googleApiKey;
+                String photoName = photos.get(0).path("name").asText();
 
+                // ✅ 7. 최종 이미지 URL 반환 (인코딩 제거)
+                String photoUrl = "https://places.googleapis.com/v1/" + photoName +
+                        "/media?maxWidthPx=800&key=" + googleApiKey;
 
                 return photoUrl;
             }
 
         } catch (Exception e) {
-
+            System.out.println("⚠️ Google Places(New) 요청 실패: " + e.getMessage());
         }
         return null;
     }
+
+
 
     private String fetchImageFromNaver(String name) {
         try {
